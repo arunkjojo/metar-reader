@@ -75,12 +75,43 @@ Then open your browser and go to `http://127.0.0.1:5000`.
 | EGLL | London Heathrow |
 | YSSY | Sydney Kingsford Smith |
 
+## Running the Tests
+
+The test suite uses Python's built-in `unittest` module — no extra packages required. All external HTTP calls are mocked, so no network connection is needed.
+
+```bash
+python -m unittest test_metar -v
+```
+
+Or with pytest if you have it installed:
+
+```bash
+pip install pytest
+pytest test_metar.py -v
+```
+
+### Test coverage
+
+| Test class | What is tested |
+|---|---|
+| `TestDegreesToCardinal` | Wind degree-to-cardinal conversion (N, S, E, W, intercardinals) |
+| `TestParseTemp` | Positive, zero, and `M`-prefixed negative temperatures |
+| `TestDecodeWxToken` | Weather phenomena tokens — intensity (`-`/`+`/`VC`), descriptors (`TS`, `FZ`, `SH`), phenomena (`RA`, `SN`, `FG`, …) |
+| `TestDecodeSkyToken` | Sky condition tokens — `SKC`, `CLR`, `CAVOK`, `NSC`, `FEW`/`SCT`/`BKN`/`OVC` with heights, `CB` and `TCU` modifiers |
+| `TestDecodeMetar` | Full METAR parser — station, timestamp, `AUTO` flag, wind (calm/variable/gust), visibility (statute miles and metres), sky layers, weather phenomena, temperature/dewpoint, altimeter (inHg and hPa), remarks stripping, edge cases |
+| `TestGetWeatherIcon` | Emoji icon selection for all weather branches and the fallback |
+| `TestGenerateSummary` | Plain-English summary — temperature feel, wind description, visibility description |
+| `TestFlaskApp` | Flask routes — GET, POST input validation, mocked API success / empty response / connection error / timeout / HTTP error, input uppercasing |
+
+**87 tests, 0 failures.**
+
 ## Project Structure
 
 ```
 metar-reader/
 ├── app.py              # Flask application and route handler
 ├── metar_decoder.py    # METAR parsing and decoding logic
+├── test_metar.py       # Unit tests (no network required)
 ├── templates/
 │   └── index.html      # Jinja2 HTML template
 └── requirements.txt    # Python dependencies

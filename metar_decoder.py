@@ -146,16 +146,16 @@ def decode_metar(raw):
         result['station'] = tokens[i]
         i += 1
 
-    # Report type modifiers
-    while i < len(tokens) and tokens[i] in ('AUTO', 'COR', 'SPECI'):
-        if tokens[i] == 'AUTO':
-            result['automated'] = True
-        i += 1
-
     # Date/Time: DDHHMMz
     if i < len(tokens) and re.match(r'^\d{6}Z$', tokens[i]):
         t = tokens[i]
         result['time'] = f"{t[2:4]}:{t[4:6]} UTC"
+        i += 1
+
+    # Report type modifiers — appear after the timestamp in standard METAR format
+    while i < len(tokens) and tokens[i] in ('AUTO', 'COR', 'SPECI'):
+        if tokens[i] == 'AUTO':
+            result['automated'] = True
         i += 1
 
     # Wind
