@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METAR Reader — Plain English Airport Weather</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(160deg, #0d1b2a 0%, #1a2e46 60%, #0e2237 100%);
+            min-height: 100vh;
+            color: #cce0f5;
+        }
+
+        header {
+            text-align: center;
+            padding: 3rem 1rem 2rem;
+        }
+
+        header h1 {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+        header h1 .highlight { color: #4da6ff; }
+
+        header p {
+            color: #7aaac8;
+            margin-top: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .container {
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 1.5rem 4rem;
+        }
+
+        /* ── Search Form ── */
+        .search-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 0.8rem;
+        }
+
+        .search-input {
+            flex: 1;
+            padding: 0.9rem 1.2rem;
+            font-size: 1.15rem;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.18);
+            border-radius: 10px;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search-input::placeholder {
+            text-transform: none;
+            letter-spacing: 0;
+            color: #4d7a99;
+        }
+
+        .search-input:focus {
+            border-color: #4da6ff;
+            box-shadow: 0 0 0 3px rgba(77,166,255,0.15);
+        }
+
+        .search-btn {
+            padding: 0.9rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            background: #4da6ff;
+            color: #0d1b2a;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+
+        .search-btn:hover { background: #6ab8ff; }
+        .search-btn:active { transform: scale(0.97); }
+
+        .search-hint {
+            margin-top: 0.75rem;
+            font-size: 0.83rem;
+            color: #4d7a99;
+        }
+
+        .examples {
+            margin-top: 0.4rem;
+            font-size: 0.83rem;
+            color: #4d7a99;
+        }
+
+        .examples a {
+            color: #5ba8e0;
+            text-decoration: none;
+            margin-right: 0.5rem;
+        }
+
+        .examples a:hover { text-decoration: underline; }
+
+        /* ── Error ── */
+        .error-box {
+            background: rgba(220,60,60,0.12);
+            border: 1px solid rgba(220,60,60,0.35);
+            border-radius: 12px;
+            padding: 1rem 1.4rem;
+            margin-bottom: 1.5rem;
+            color: #ff9090;
+            font-size: 0.95rem;
+        }
+
+        /* ── Summary Card ── */
+        .summary-card {
+            background: rgba(77,166,255,0.09);
+            border: 1px solid rgba(77,166,255,0.25);
+            border-radius: 16px;
+            padding: 1.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .summary-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .weather-icon { font-size: 3rem; line-height: 1; }
+
+        .summary-station {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .auto-badge {
+            display: inline-block;
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 0.15rem 0.45rem;
+            background: rgba(255,165,0,0.15);
+            border: 1px solid rgba(255,165,0,0.4);
+            color: #ffa040;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 0.4rem;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-time {
+            font-size: 0.82rem;
+            color: #6a9ab8;
+            margin-top: 0.2rem;
+        }
+
+        .summary-text {
+            font-size: 1.05rem;
+            line-height: 1.75;
+            color: #c0d8ef;
+        }
+
+        /* ── Data Grid ── */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .data-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 12px;
+            padding: 1.2rem 1.4rem;
+        }
+
+        .data-card-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #5a8aa8;
+            margin-bottom: 0.45rem;
+        }
+
+        .data-card-value {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.4;
+        }
+
+        .data-card-sub {
+            font-size: 0.82rem;
+            color: #7aaac8;
+            margin-top: 0.3rem;
+        }
+
+        /* ── Sky Conditions full-width card ── */
+        .full-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.09);
+            border-radius: 12px;
+            padding: 1.2rem 1.4rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .sky-list { list-style: none; }
+
+        .sky-list li {
+            padding: 0.35rem 0;
+            color: #ddeeff;
+            font-size: 0.97rem;
+        }
+
+        .sky-list li + li {
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        .wx-item {
+            color: #ddeeff;
+            font-size: 0.97rem;
+            padding: 0.2rem 0;
+            text-transform: capitalize;
+        }
+
+        /* ── Raw METAR ── */
+        .raw-metar {
+            background: rgba(0,0,0,0.25);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+            padding: 1rem 1.4rem;
+        }
+
+        .raw-metar summary {
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #4d7a99;
+            user-select: none;
+            list-style: none;
+        }
+
+        .raw-metar summary:hover { color: #7aaac8; }
+
+        .raw-metar code {
+            display: block;
+            margin-top: 0.9rem;
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 0.88rem;
+            color: #89c0e0;
+            word-break: break-all;
+            line-height: 1.6;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 540px) {
+            header h1 { font-size: 1.8rem; }
+            .search-row { flex-direction: column; }
+            .data-grid { grid-template-columns: 1fr; }
+            .weather-icon { font-size: 2.4rem; }
+            .summary-station { font-size: 1.3rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>✈️ <span class="highlight">METAR</span> Reader</h1>
+    <p>Type an airport code to get a plain-English weather report</p>
+</header>
+
+<div class="container">
+
+    <div class="search-card">
+        <form method="POST" action="/">
+            <div class="search-row">
+                <input
+                    class="search-input"
+                    type="text"
+                    name="airport_code"
+                    placeholder="e.g. KJFK"
+                    value="{{ airport_code }}"
+                    maxlength="4"
+                    autocomplete="off"
+                    spellcheck="false"
+                    autofocus
+                >
+                <button class="search-btn" type="submit">Get Weather</button>
+            </div>
+            <p class="search-hint">Use the 4-letter ICAO airport code.</p>
+            <p class="examples">
+                Try:
+                <a href="#" onclick="setCode('KJFK')">KJFK</a>
+                <a href="#" onclick="setCode('KLAX')">KLAX</a>
+                <a href="#" onclick="setCode('KORD')">KORD</a>
+                <a href="#" onclick="setCode('EGLL')">EGLL</a>
+                <a href="#" onclick="setCode('YSSY')">YSSY</a>
+            </p>
+        </form>
+    </div>
+
+    {% if error %}
+    <div class="error-box">⚠️ {{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+
+    <div class="summary-card">
+        <div class="summary-header">
+            <div class="weather-icon">{{ result.icon }}</div>
+            <div>
+                <div class="summary-station">
+                    {{ result.station }}
+                    {% if result.get('automated') %}
+                    <span class="auto-badge">AUTO</span>
+                    {% endif %}
+                </div>
+                {% if result.get('time') %}
+                <div class="summary-time">Observation at {{ result.time }}</div>
+                {% endif %}
+            </div>
+        </div>
+        <p class="summary-text">{{ result.summary }}</p>
+    </div>
+
+    <div class="data-grid">
+
+        {% if result.get('temperature') %}
+        <div class="data-card">
+            <div class="data-card-label">🌡️ Temperature</div>
+            <div class="data-card-value">{{ result.temperature.text }}</div>
+            {% if result.get('dewpoint') %}
+            <div class="data-card-sub">Dew point: {{ result.dewpoint.text }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if result.get('wind') %}
+        <div class="data-card">
+            <div class="data-card-label">💨 Wind</div>
+            <div class="data-card-value">{{ result.wind.text }}</div>
+            {% if result.get('wind_variable') %}
+            <div class="data-card-sub">{{ result.wind_variable }}</div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        {% if result.get('visibility') %}
+        <div class="data-card">
+            <div class="data-card-label">👁️ Visibility</div>
+            <div class="data-card-value">{{ result.visibility.text }}</div>
+        </div>
+        {% endif %}
+
+        {% if result.get('altimeter') %}
+        <div class="data-card">
+            <div class="data-card-label">📊 Altimeter / Pressure</div>
+            <div class="data-card-value">{{ result.altimeter.text }}</div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    {% if result.get('sky') %}
+    <div class="full-card">
+        <div class="data-card-label">☁️ Sky Conditions</div>
+        <ul class="sky-list" style="margin-top:0.5rem;">
+            {% for layer in result.sky %}
+            <li>{{ layer.text }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if result.get('weather') %}
+    <div class="full-card">
+        <div class="data-card-label">🌦️ Weather Phenomena</div>
+        <div style="margin-top:0.5rem;">
+            {% for wx in result.weather %}
+            <div class="wx-item">{{ wx }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <details class="raw-metar">
+        <summary>▶ Show raw METAR string</summary>
+        <code>{{ result.raw }}</code>
+    </details>
+
+    {% endif %}
+
+</div>
+
+<script>
+    function setCode(code) {
+        document.querySelector('.search-input').value = code;
+        document.querySelector('.search-btn').closest('form').submit();
+        return false;
+    }
+</script>
+
+</body>
+</html>
